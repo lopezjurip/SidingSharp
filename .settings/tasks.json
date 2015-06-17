@@ -1,0 +1,17 @@
+{
+    "version": "0.1.0",
+    "command": "mcs",
+    "args": [
+        "-debug",
+        "Program.cs"
+    ],  
+    "showOutput": "silent",
+    "taskSelector": "/t:",
+    "tasks": [
+        {
+            "taskName": "exe",
+            "isBuildCommand": true,
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}
