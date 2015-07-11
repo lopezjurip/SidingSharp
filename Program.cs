@@ -9,14 +9,14 @@ namespace SidingTest
     {
         static void Main(string[] args)
         {
-            string user = "USER";
-            string password = "PASSWORD";
+            string user = "asd.cl";
+            string password = "asd";
 
             Siding siding = new Siding(user, password);
-            string url = "https://intrawww.ing.puc.cl/siding/dirdes/ingcursos/cursos/vista.phtml";
+            string url = "https://intrawww.ing.puc.cl/siding/dirdes/ingcursos/cursos/vista.phtml?accion_curso=avisos&acc_aviso=mostrar&id_curso_ic=7023";
             string html = siding.GetHTML(url);
 
-            Console.WriteLine(html);
+            //Console.WriteLine(html);
             Console.ReadLine();
         }
     }
@@ -37,21 +37,17 @@ namespace SidingTest
 
         public string GetHTML(string url)
         {
-            bool success = this.RequestCookieIfNeeded();
-            if (success)
+            var request = this.RequestWithCredentials(url);
+            if (request != null)
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-                request.CookieContainer = new CookieContainer();
-                request.CookieContainer.Add(this.cookies);
-
-                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-                if (response.StatusCode != HttpStatusCode.Forbidden || response.StatusCode != HttpStatusCode.NotFound)
+                var response = (HttpWebResponse)request.GetResponse();
+                if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    Stream stream = response.GetResponseStream();
-                    StreamReader reader = (response.CharacterSet != null) ?
+                    var stream = response.GetResponseStream();
+                    var reader = (response.CharacterSet != null) ?
                         new StreamReader(stream) : new StreamReader(stream, Encoding.GetEncoding(response.CharacterSet));
 
-                    string html = reader.ReadToEnd();
+                    var html = reader.ReadToEnd();
 
                     stream.Close();
                     reader.Close();
@@ -62,34 +58,38 @@ namespace SidingTest
             return null;
         }
 
-        private bool RequestCookieIfNeeded()
+        public HttpWebRequest RequestWithCredentials(string url)
         {
-            if (this.IsCookiesExpired())
+            bool authorized = this.Authorize();
+            Console.WriteLine(authorized);
+            if (authorized)
             {
-                return this.RequestCookies();
+                var request = (HttpWebRequest)WebRequest.Create(url);
+                request.CookieContainer = new CookieContainer();
+                request.CookieContainer.Add(this.cookies);
+                return request;
             }
-            return true;
+            return null;
         }
 
-        private bool IsCookiesExpired()
+        private bool Authorize()
         {
-            if (this.cookies != null && this.cookies.Count != 0)
+            return this.ExpiredCookies ? this.RequestSessionCookies() : true;
+        }
+
+        private bool ExpiredCookies
+        {
+            get
             {
-                foreach (Cookie cookie in this.cookies)
-                {
-                    if (cookie.Expired) return true;
-                }
+                if (this.cookies == null) return true;
+                foreach (Cookie cookie in this.cookies) { if (cookie.Expired) return true; }
                 return false;
             }
-            else
-            {
-                return true;
-            }
         }
 
-        private bool RequestCookies()
+        private bool RequestSessionCookies()
         {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Siding.loginBaseUrl);
+            var request = (HttpWebRequest)WebRequest.Create(Siding.loginBaseUrl);
             request.CookieContainer = new CookieContainer();
             
             string postData = String.Format("login={0}&passwd={1}&sw=&sh=&cd=", this.user, this.password);
@@ -103,17 +103,16 @@ namespace SidingTest
                 stream.Write(data, 0 ,data.Length);
             }
 
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            var response = (HttpWebResponse)request.GetResponse();
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 this.cookies = response.Cookies;
+                foreach (Cookie c in this.cookies)
+                    Console.WriteLine(c);
                 return true;
             }
-            else
-            {
-                return false;
-            }
+            return false;
         }
     }
 }
